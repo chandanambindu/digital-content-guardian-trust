@@ -23,9 +23,22 @@ interface UploadedFile {
   };
 }
 
+// Create a key for storing uploads in localStorage
+const UPLOADS_STORAGE_KEY = 'digital-guardian-uploads';
+
 const Upload = () => {
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(() => {
+    // Load any previously uploaded files from localStorage
+    const savedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
+    return savedUploads ? JSON.parse(savedUploads) : [];
+  });
   const [isDragging, setIsDragging] = useState(false);
+
+  // Save uploads to localStorage whenever they change
+  const saveUploads = (uploads: UploadedFile[]) => {
+    localStorage.setItem(UPLOADS_STORAGE_KEY, JSON.stringify(uploads));
+    return uploads;
+  };
 
   const handleFileUpload = (files: FileList) => {
     if (files.length === 0) {
@@ -66,7 +79,7 @@ const Upload = () => {
         status: 'uploading'
       };
 
-      setUploadedFiles(prev => [...prev, newFile]);
+      setUploadedFiles(prev => saveUploads([...prev, newFile]));
       
       // Show toast notification
       toast({
@@ -74,10 +87,20 @@ const Upload = () => {
         description: `${file.name} has been added to the upload queue`,
       });
 
-      // Simulate upload and processing
-      setTimeout(() => {
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === newFile.id ? { ...f, status: 'processing' } : f
+      // Read the file (for demonstration - in a real app you'd send to a server)
+      const reader = new FileReader();
+      
+      reader.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          console.log(`Upload progress: ${progress}%`);
+        }
+      };
+      
+      reader.onload = () => {
+        // Simulate processing after file is read
+        setUploadedFiles(prev => saveUploads(
+          prev.map(f => f.id === newFile.id ? { ...f, status: 'processing' } : f)
         ));
         
         toast({
@@ -113,8 +136,8 @@ const Upload = () => {
               `⚠️ POTENTIAL MANIPULATION DETECTED\n\nThis file shows signs of possible manipulation or artificial generation with ${confidence}% confidence of detection. Multiple authentication checks have identified suspicious patterns.\n\nConcerns identified:\n• Inconsistent metadata structure\n• Suspicious compression artifacts\n• Pixel-level irregularities\n• Possible AI generation patterns\n• Digital manipulation indicators\n\nReason for non-authentication: The file exhibits multiple characteristics commonly associated with manipulated or artificially generated content. Manual review recommended for critical use cases.`
           };
 
-          setUploadedFiles(prev => prev.map(f => 
-            f.id === newFile.id ? { ...f, status: 'completed', result } : f
+          setUploadedFiles(prev => saveUploads(
+            prev.map(f => f.id === newFile.id ? { ...f, status: 'completed', result } : f)
           ));
 
           toast({
@@ -123,7 +146,22 @@ const Upload = () => {
             variant: isAuthentic ? "default" : "destructive",
           });
         }, 3000);
-      }, 1000);
+      };
+      
+      reader.onerror = () => {
+        toast({
+          title: "Error reading file",
+          description: "There was a problem reading your file. Please try again.",
+          variant: "destructive",
+        });
+        
+        setUploadedFiles(prev => saveUploads(
+          prev.filter(f => f.id !== newFile.id)
+        ));
+      };
+      
+      // Start reading the file
+      reader.readAsDataURL(file);
     });
   };
 
@@ -164,6 +202,7 @@ const Upload = () => {
   // Function to clear all uploads
   const clearUploads = () => {
     setUploadedFiles([]);
+    localStorage.removeItem(UPLOADS_STORAGE_KEY);
     toast({
       title: "Uploads cleared",
       description: "All uploaded files have been removed",

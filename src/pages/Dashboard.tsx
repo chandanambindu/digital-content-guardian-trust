@@ -6,14 +6,56 @@ import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '@/components/ui/table';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+// Define an interface for uploaded files to match the Upload.tsx file
+interface UploadedFile {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  status: 'uploading' | 'processing' | 'completed';
+  result?: {
+    isAuthentic: boolean;
+    confidence: number;
+    riskLevel: 'low' | 'medium' | 'high';
+    details: string[];
+    report: string;
+  };
+}
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [viewingReports, setViewingReports] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  
+  // Storage key for uploads (must match the one in Upload.tsx)
+  const UPLOADS_STORAGE_KEY = 'digital-guardian-uploads';
 
-  // Mock data for demonstration
-  const recentAnalyses = [
+  // Load uploaded files from localStorage
+  useEffect(() => {
+    const savedUploads = localStorage.getItem(UPLOADS_STORAGE_KEY);
+    const uploads = savedUploads ? JSON.parse(savedUploads) : [];
+    setUploadedFiles(uploads);
+  }, [viewingReports]); // Refresh when toggling view to get latest data
+  
+  // Convert uploaded files to analysis format for display
+  const recentAnalyses = uploadedFiles
+    .filter(file => file.status === 'completed' && file.result)
+    .map(file => ({
+      id: file.id,
+      filename: file.name,
+      result: file.result?.isAuthentic ? 'Authentic' : 'Suspicious',
+      confidence: file.result?.confidence || 0,
+      date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+      details: file.result?.isAuthentic 
+        ? 'No manipulation detected' 
+        : 'Potential manipulation detected',
+      riskLevel: file.result?.riskLevel || 'low'
+    }));
+
+  // If no uploaded files, use mock data
+  const mockAnalyses = [
     { id: 1, filename: 'profile_photo.jpg', result: 'Authentic', confidence: 94, date: '2024-01-15', details: 'No manipulation detected', riskLevel: 'low' },
     { id: 2, filename: 'news_video.mp4', result: 'Suspicious', confidence: 78, date: '2024-01-14', details: 'Potential manipulation detected', riskLevel: 'medium' },
     { id: 3, filename: 'interview_audio.wav', result: 'Authentic', confidence: 89, date: '2024-01-13', details: 'No manipulation detected', riskLevel: 'low' },
@@ -21,11 +63,18 @@ const Dashboard = () => {
     { id: 5, filename: 'documentary_clip.mp4', result: 'Authentic', confidence: 91, date: '2024-01-11', details: 'No manipulation detected', riskLevel: 'low' },
   ];
 
+  // Use real uploads if available, otherwise fall back to mock data
+  const displayAnalyses = recentAnalyses.length > 0 ? recentAnalyses : mockAnalyses;
+
+  // Calculate stats based on the displayed analyses
   const stats = {
-    totalAnalyses: 47,
-    authenticFiles: 32,
-    suspiciousFiles: 15,
-    averageConfidence: 87
+    totalAnalyses: displayAnalyses.length,
+    authenticFiles: displayAnalyses.filter(a => a.result === 'Authentic').length,
+    suspiciousFiles: displayAnalyses.filter(a => a.result === 'Suspicious').length,
+    averageConfidence: Math.round(
+      displayAnalyses.reduce((sum, item) => sum + item.confidence, 0) / 
+      displayAnalyses.length
+    )
   };
 
   const toggleReportView = () => {
@@ -167,7 +216,7 @@ const Dashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recentAnalyses.map(analysis => (
+                  {displayAnalyses.map(analysis => (
                     <TableRow key={analysis.id}>
                       <TableCell className="font-medium">{analysis.filename}</TableCell>
                       <TableCell>{analysis.date}</TableCell>
@@ -181,7 +230,7 @@ const Dashboard = () => {
                           analysis.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
                           'bg-red-100 text-red-800'
                         }`}>
-                          {analysis.riskLevel.toUpperCase()}
+                          {typeof analysis.riskLevel === 'string' ? analysis.riskLevel.toUpperCase() : ''}
                         </span>
                       </TableCell>
                       <TableCell>{analysis.details}</TableCell>
@@ -189,6 +238,15 @@ const Dashboard = () => {
                   ))}
                 </TableBody>
               </Table>
+              
+              {recentAnalyses.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No uploaded files found. Try uploading some files from the Upload page!</p>
+                  <Link to="/upload" className="mt-4 inline-block">
+                    <Button variant="outline" className="mt-2">Go to Upload</Button>
+                  </Link>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -201,25 +259,34 @@ const Dashboard = () => {
               <CardDescription>Your latest content verification results</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentAnalyses.slice(0, 3).map(analysis => (
-                  <div key={analysis.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-3 h-3 rounded-full ${analysis.result === 'Authentic' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      <div>
-                        <div className="font-medium">{analysis.filename}</div>
-                        <div className="text-sm text-gray-600">{analysis.date}</div>
+              {displayAnalyses.slice(0, 3).length > 0 ? (
+                <div className="space-y-4">
+                  {displayAnalyses.slice(0, 3).map(analysis => (
+                    <div key={analysis.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-3 h-3 rounded-full ${analysis.result === 'Authentic' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <div>
+                          <div className="font-medium">{analysis.filename}</div>
+                          <div className="text-sm text-gray-600">{analysis.date}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-medium ${analysis.result === 'Authentic' ? 'text-green-600' : 'text-red-600'}`}>
+                          {analysis.result}
+                        </div>
+                        <div className="text-sm text-gray-600">{analysis.confidence}% confidence</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className={`font-medium ${analysis.result === 'Authentic' ? 'text-green-600' : 'text-red-600'}`}>
-                        {analysis.result}
-                      </div>
-                      <div className="text-sm text-gray-600">{analysis.confidence}% confidence</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No recent analyses. Try uploading some files to verify!</p>
+                  <Link to="/upload" className="mt-4 inline-block">
+                    <Button variant="outline" className="mt-2">Go to Upload</Button>
+                  </Link>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
