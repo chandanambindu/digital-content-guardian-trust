@@ -28,6 +28,15 @@ const Upload = () => {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleFileUpload = (files: FileList) => {
+    if (files.length === 0) {
+      toast({
+        title: "No files selected",
+        description: "Please select at least one file to upload",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     Array.from(files).forEach(file => {
       // Validate file type
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && !file.type.startsWith('audio/')) {
@@ -58,12 +67,23 @@ const Upload = () => {
       };
 
       setUploadedFiles(prev => [...prev, newFile]);
+      
+      // Show toast notification
+      toast({
+        title: "File added",
+        description: `${file.name} has been added to the upload queue`,
+      });
 
       // Simulate upload and processing
       setTimeout(() => {
         setUploadedFiles(prev => prev.map(f => 
           f.id === newFile.id ? { ...f, status: 'processing' } : f
         ));
+        
+        toast({
+          title: "Processing file",
+          description: `${file.name} is now being analyzed`,
+        });
 
         // Simulate analysis completion
         setTimeout(() => {
@@ -100,6 +120,7 @@ const Upload = () => {
           toast({
             title: "Analysis completed",
             description: `${file.name} has been processed`,
+            variant: isAuthentic ? "default" : "destructive",
           });
         }, 3000);
       }, 1000);
@@ -138,6 +159,15 @@ const Upload = () => {
       case 'medium': return 'bg-yellow-100 text-yellow-800';
       case 'high': return 'bg-red-100 text-red-800';
     }
+  };
+  
+  // Function to clear all uploads
+  const clearUploads = () => {
+    setUploadedFiles([]);
+    toast({
+      title: "Uploads cleared",
+      description: "All uploaded files have been removed",
+    });
   };
 
   return (
@@ -194,7 +224,11 @@ const Upload = () => {
         {/* Uploaded Files */}
         {uploadedFiles.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-900">Analysis Results</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Analysis Results</h2>
+              <Button variant="outline" onClick={clearUploads}>Clear All</Button>
+            </div>
+            
             {uploadedFiles.map(file => (
               <Card key={file.id}>
                 <CardHeader>

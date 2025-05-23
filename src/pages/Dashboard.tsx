@@ -5,15 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '@/components/ui/table';
+import { useState } from 'react';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const [viewingReports, setViewingReports] = useState(false);
 
   // Mock data for demonstration
   const recentAnalyses = [
-    { id: 1, filename: 'profile_photo.jpg', result: 'Authentic', confidence: 94, date: '2024-01-15' },
-    { id: 2, filename: 'news_video.mp4', result: 'Suspicious', confidence: 78, date: '2024-01-14' },
-    { id: 3, filename: 'interview_audio.wav', result: 'Authentic', confidence: 89, date: '2024-01-13' },
+    { id: 1, filename: 'profile_photo.jpg', result: 'Authentic', confidence: 94, date: '2024-01-15', details: 'No manipulation detected', riskLevel: 'low' },
+    { id: 2, filename: 'news_video.mp4', result: 'Suspicious', confidence: 78, date: '2024-01-14', details: 'Potential manipulation detected', riskLevel: 'medium' },
+    { id: 3, filename: 'interview_audio.wav', result: 'Authentic', confidence: 89, date: '2024-01-13', details: 'No manipulation detected', riskLevel: 'low' },
+    { id: 4, filename: 'social_media_post.jpg', result: 'Suspicious', confidence: 62, date: '2024-01-12', details: 'AI generation patterns detected', riskLevel: 'high' },
+    { id: 5, filename: 'documentary_clip.mp4', result: 'Authentic', confidence: 91, date: '2024-01-11', details: 'No manipulation detected', riskLevel: 'low' },
   ];
 
   const stats = {
@@ -21,6 +26,10 @@ const Dashboard = () => {
     authenticFiles: 32,
     suspiciousFiles: 15,
     averageConfidence: 87
+  };
+
+  const toggleReportView = () => {
+    setViewingReports(!viewingReports);
   };
 
   return (
@@ -71,7 +80,9 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full">View All Reports</Button>
+              <Button variant="outline" className="w-full" onClick={toggleReportView}>
+                {viewingReports ? "Hide Reports" : "View All Reports"}
+              </Button>
             </CardContent>
           </Card>
 
@@ -136,34 +147,82 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Recent Analyses */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Analyses</CardTitle>
-            <CardDescription>Your latest content verification results</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentAnalyses.map(analysis => (
-                <div key={analysis.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-3 h-3 rounded-full ${analysis.result === 'Authentic' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <div>
-                      <div className="font-medium">{analysis.filename}</div>
-                      <div className="text-sm text-gray-600">{analysis.date}</div>
+        {/* Detailed Reports View (togglable) */}
+        {viewingReports && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>All Verification Reports</CardTitle>
+              <CardDescription>Comprehensive list of all analyzed content</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Filename</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Result</TableHead>
+                    <TableHead>Confidence</TableHead>
+                    <TableHead>Risk Level</TableHead>
+                    <TableHead>Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentAnalyses.map(analysis => (
+                    <TableRow key={analysis.id}>
+                      <TableCell className="font-medium">{analysis.filename}</TableCell>
+                      <TableCell>{analysis.date}</TableCell>
+                      <TableCell className={analysis.result === 'Authentic' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                        {analysis.result}
+                      </TableCell>
+                      <TableCell>{analysis.confidence}%</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          analysis.riskLevel === 'low' ? 'bg-green-100 text-green-800' : 
+                          analysis.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {analysis.riskLevel.toUpperCase()}
+                        </span>
+                      </TableCell>
+                      <TableCell>{analysis.details}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recent Analyses (still shown when not in detailed view) */}
+        {!viewingReports && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Analyses</CardTitle>
+              <CardDescription>Your latest content verification results</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentAnalyses.slice(0, 3).map(analysis => (
+                  <div key={analysis.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-3 h-3 rounded-full ${analysis.result === 'Authentic' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <div>
+                        <div className="font-medium">{analysis.filename}</div>
+                        <div className="text-sm text-gray-600">{analysis.date}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-medium ${analysis.result === 'Authentic' ? 'text-green-600' : 'text-red-600'}`}>
+                        {analysis.result}
+                      </div>
+                      <div className="text-sm text-gray-600">{analysis.confidence}% confidence</div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className={`font-medium ${analysis.result === 'Authentic' ? 'text-green-600' : 'text-red-600'}`}>
-                      {analysis.result}
-                    </div>
-                    <div className="text-sm text-gray-600">{analysis.confidence}% confidence</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
       
       <Footer />
